@@ -7,7 +7,17 @@ import torch
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 
+
 class ActiveLearning:
+  @staticmethod
+  def set_seed(seed=42):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
   def __init__(self, model, X_train, y_train, X_test, y_test,
                strategy="random", al_type="cumulative",
                update_size=128, init_size=128, skip_size=8, skip=False,
@@ -45,6 +55,7 @@ class ActiveLearning:
 
   @classmethod
   def normalize_data(cls, X_train, X_test):
+    cls.set_seed()
     mean = X_train.float().mean()
     std = X_train.float().std()
 
@@ -56,6 +67,7 @@ class ActiveLearning:
 
 
   def acquisition_function(self, outputs, strategy):
+    self.set_seed()
     match strategy:
       case "random":
         if (self.skip and len(self.X_pool) - self.skip_size > 0):
@@ -159,6 +171,7 @@ class ActiveLearning:
 
 
   def fit(self, lr=0.01):
+    self.set_seed()
     print("AL TRAINING STARTED")
     optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
@@ -274,7 +287,7 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
 
       hidden_dim = al_obj.model.hidden_dim
 
-      legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}_{f"s{al_obj.skip_size}" if al_obj.skip else ""})"
+      legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{f"_s{al_obj.skip_size}" if al_obj.skip else ""})"
 
       plt.plot(al_obj.labeled_fractions, al_obj.test_metrics,
                marker='o', linewidth=0.5, markersize=1, label=legend_label)
