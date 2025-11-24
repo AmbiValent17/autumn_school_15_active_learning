@@ -1,0 +1,26 @@
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.py$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.tox
+  | \venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | notebooks
+  | data
+)/
+'''
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88

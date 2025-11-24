@@ -1,39 +1,11 @@
 import torch.nn as nn
-import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import torch.optim as optim
+import torch
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
-import base64
-import io
-import json
-import uuid
-from PIL import Image
-from IPython.display import display, HTML
-
-
-class ANN(nn.Module):
-  def __init__(self, input_dim=28*28, hidden_dim=128, output_dim=10):
-    super().__init__()
-    self.flat = nn.Flatten()
-    self.lin1 = nn.Linear(input_dim, hidden_dim)
-    self.relu = nn.ReLU()
-    self.lin2 = nn.Linear(hidden_dim, output_dim)
-    self.hidden_dim = hidden_dim
-
-  def forward(self, X):
-    X = self.flat(X)
-    X = self.lin1(X)
-    X = self.relu(X)
-    logits = self.lin2(X)
-    return logits
-
-  def predict_proba(self, X):
-    logits = self(X)
-    return F.softmax(logits)
-
 
 class ActiveLearning:
   def __init__(self, model, X_train, y_train, X_test, y_test,
@@ -266,8 +238,28 @@ class ActiveLearning:
       with torch.no_grad():
           logits = self.model(X)
           return torch.argmax(logits, dim=1)
+      
 
+class ANN(nn.Module):
+  def __init__(self, input_dim=28*28, hidden_dim=128, output_dim=10):
+    super().__init__()
+    self.flat = nn.Flatten()
+    self.lin1 = nn.Linear(input_dim, hidden_dim)
+    self.relu = nn.ReLU()
+    self.lin2 = nn.Linear(hidden_dim, output_dim)
+    self.hidden_dim = hidden_dim
 
+  def forward(self, X):
+    X = self.flat(X)
+    X = self.lin1(X)
+    X = self.relu(X)
+    logits = self.lin2(X)
+    return logits
+
+  def predict_proba(self, X):
+    logits = self(X)
+    return F.softmax(logits)
+  
 
 def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
     plt.figure(figsize=(12, 8))
@@ -314,6 +306,16 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
 
 
 
+import base64
+import io
+import json
+import uuid
+import numpy as np
+import torch
+from PIL import Image
+from IPython.display import display, HTML
+
+# --- Безопасная кодировка данных ---
 class SafeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer): return int(obj)
@@ -323,7 +325,6 @@ class SafeEncoder(json.JSONEncoder):
             if obj.numel() == 1: return obj.item()
             return obj.detach().cpu().numpy().tolist()
         return super(SafeEncoder, self).default(obj)
-
 
 def tensor_to_base64_safe(tensor, size=(56, 56)):
     """Преобразует тензор в Base64 с адаптивным ресайзом."""
@@ -696,4 +697,3 @@ def plot_active_learning_results(al, dataset_name="Dataset", title=None):
         f.write(html_content)
 
     print(f"✅ График сохранен как '{filename}'. Скачивание начнется автоматически...")
-

@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 89
+extend-ignore = E203, W605
+exclude = .git, __pycache__, dist, **checkpoint.py
+

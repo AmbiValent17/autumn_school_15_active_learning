@@ -1,0 +1,30 @@
+repos:
+  - repo: https://github.com/ambv/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        language_version: python3
+        types: [python]
+        stages: [pre-commit]
+        always_run: true
+        args: ["--config", "pyproject.toml", "."]
+
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        language_version: python3
+        types: [python]
+        stages: [pre-commit]
+        always_run: true
+        args: ["."]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 3.8.3
+    hooks:
+      - id: flake8
+        language_version: python3
+        types: [python]
+        stages: [pre-commit]
+        always_run: true
+        args: ["--config", ".flake8", "."]
