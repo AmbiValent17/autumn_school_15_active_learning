@@ -25,7 +25,9 @@ class ActiveLearning:
                epochs=1, batch_size=128, logs=False, normalization=True,
                metric="f1", criterion=nn.CrossEntropyLoss()):
 
-    self.model = model
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    self.model = model.to(self.device)
     self.update_size = update_size
     self.batch_size = batch_size
     self.al_type = al_type
@@ -42,14 +44,14 @@ class ActiveLearning:
     if self.normalization:
        X_train_scaled, X_test_scaled = ActiveLearning.normalize_data(X_train, X_test)
 
-    self.X_init = X_train_scaled[:init_size].clone()
-    self.y_init = y_train[:init_size].clone()
-    self.X_train = X_train_scaled[:init_size].clone()
-    self.y_train = y_train[:init_size].clone()
-    self.X_pool = X_train_scaled[init_size:].clone()
-    self.y_pool = y_train[init_size:].clone()
-    self.X_test = X_test_scaled.clone()
-    self.y_test = y_test.clone()
+    self.X_init = X_train_scaled[:init_size].clone().to(self.device)
+    self.y_init = y_train[:init_size].clone().to(self.device)
+    self.X_train = X_train_scaled[:init_size].clone().to(self.device)
+    self.y_train = y_train[:init_size].clone().to(self.device)
+    self.X_pool = X_train_scaled[init_size:].clone().to(self.device)
+    self.y_pool = y_train[init_size:].clone().to(self.device)
+    self.X_test = X_test_scaled.clone().to(self.device)
+    self.y_test = y_test.clone().to(self.device)
 
     self.test_metrics = []
     self.labeled_fractions = []
@@ -170,7 +172,7 @@ class ActiveLearning:
     mask[indices] = False
     self.X_pool = self.X_pool[mask]
     self.y_pool = self.y_pool[mask]
-    self.most_inf_images.append((X_update[:16], y_update[:16]))
+    self.most_inf_images.append((X_update[:16].cpu(), y_update[:16].cpu()))
     return X_update, y_update
 
 
@@ -187,7 +189,7 @@ class ActiveLearning:
       n_batches = (train_size + self.batch_size - 1) // self.batch_size
       for epoch in range(self.epochs):
         self.model.train()
-        indices = torch.randperm(train_size)
+        indices = torch.randperm(train_size, device=self.device)
 
         for batch_idx in range(n_batches):
           start_idx = batch_idx * self.batch_size
@@ -207,13 +209,13 @@ class ActiveLearning:
         self.model.eval()
         pool_outputs = self.model(self.X_pool)
         test_outputs = self.model(self.X_test)
-        test_preds = torch.argmax(test_outputs, dim=1)
+        test_preds = torch.argmax(test_outputs.cpu(), dim=1)
 
         match self.metric:
           case "accuracy":
-            test_score = accuracy_score(self.y_test.numpy(), test_preds.numpy())
+            test_score = accuracy_score(self.y_test.cpu().numpy(), test_preds.numpy())
           case "f1":
-            test_score = f1_score(self.y_test.numpy(), test_preds.numpy(), average="macro")
+            test_score = f1_score(self.y_test.cpu().numpy(), test_preds.numpy(), average="macro")
 
         self.test_metrics.append(test_score)
         self.labeled_fractions.append((self.labeled_size / self.full_size) * 100)
@@ -299,7 +301,8 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
       hidden_dim = al_obj.model.hidden_dim
       
       if isinstance(al_obj.model, ANN):
-        legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{f"_s{al_obj.skip_size}" if al_obj.skip else ""})"
+        skip_label = f"_s{al_obj.skip_size}" if al_obj.skip else ""
+        legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{skip_label})"
       else:
         legend_label = f"{al_type_name} {al_obj.strategy} ({al_obj.model.__class__.__name__})"
 
@@ -312,10 +315,7 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
     else:
       plt.ylabel('F1 Score', fontsize=12)
 
-    if title:
-        plt.title(title, fontsize=14, pad=20)
-    else:
-        plt.title(f'Active Learning Results ({dataset_name})', fontsize=14, pad=20)
+    plt.title(f'Active Learning Results ({dataset_name})', fontsize=14, pad=20)
 
     plt.grid(True, alpha=0.3)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
