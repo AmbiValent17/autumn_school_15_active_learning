@@ -150,8 +150,20 @@ class ActiveLearning:
 
       with torch.no_grad():
         self.model.eval()
-        pool_outputs = self.model(self.X_pool)
-        test_outputs = self.model(self.X_test)
+        
+        
+        def batched_inference(data):
+                outputs = []
+                batch_size = 32
+                for i in range(0, len(data), batch_size):
+                    end_idx = min(i + batch_size, len(data))
+                    batch_outputs = self.model(data[i:end_idx])
+                    outputs.append(batch_outputs)
+                return torch.cat(outputs, dim=0)
+            
+        pool_outputs = batched_inference(self.X_pool)
+        test_outputs = batched_inference(self.X_test)
+        
         test_preds = torch.argmax(test_outputs.cpu(), dim=1)
 
         match self.metric:
@@ -230,7 +242,7 @@ class ANN(nn.Module):
     return F.softmax(logits)
   
 
-def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
+def plot_active_learning_results_many(*al_objects, dataset_name="", title=None, name=""):
     plt.figure(figsize=(12, 8))
 
     for al_obj in al_objects:
@@ -241,12 +253,9 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
       elif al_obj.al_type == "half-cumulative":
         al_type_name = "half-cumul"
       
-      if "hidden_dim" in al_obj.__dict__:
-        hidden_dim = al_obj.model.hidden_dim
-      
       if isinstance(al_obj.model, ANN):
         skip_label = f"_s{al_obj.skip_size}" if al_obj.skip else ""
-        legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{skip_label})"
+        legend_label = f"{al_type_name} {al_obj.strategy} (h{al_obj.model.hidden_dim}_e{al_obj.epochs}{skip_label})"
       else:
         legend_label = f"{al_type_name} {al_obj.strategy} ({al_obj.model.__class__.__name__})"
 
@@ -259,7 +268,10 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
     else:
       plt.ylabel('F1 Score', fontsize=12)
 
-    plt.title(f'Active Learning Results ({dataset_name})', fontsize=14, pad=20)
+    if title:
+        plt.title(title, fontsize=14, pad=20)
+    else:
+        plt.title(f'Active Learning Results ({dataset_name})', fontsize=14, pad=20)
 
     plt.grid(True, alpha=0.3)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -273,6 +285,7 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.1)
     plt.show()
+    plt.savefig(f'graphics//{name}.svg', format='svg')
 
 
 
