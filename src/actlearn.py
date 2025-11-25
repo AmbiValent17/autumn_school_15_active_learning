@@ -107,63 +107,6 @@ class ActiveLearning:
         else:
           indices = torch.argsort(margin, descending=True)[:self.update_size]
 
-      case "dynamic":
-        # metrics = []
-        # indices = torch.randperm(len(self.X_train))[:self.update_size]
-        # X_train_random = self.X_train[indices].clone()
-        # y_train_random = self.y_train[indices].clone()
-        # y_pred_random = self.predict(X_train_random)
-        # if self.metric == "accuracy":
-        #   metric_random = accuracy_score(y_train_random.numpy(), y_pred_random.numpy())
-        # elif self.metric == "f1":
-        #   metric_random = f1_score(y_train_random.numpy(), y_pred_random.numpy(), average="macro")
-
-        # metrics.append(metric_random)
-
-        # outputs_conf = self.predict_proba(self.X_train)
-        # confidence, _ = torch.max(probas, dim=1)
-        # indices = torch.argsort(confidence)[:self.update_size]
-        # X_train_conf = self.X_train[indices].clone()
-        # y_train_conf = self.y_train[indices].clone()
-        # y_pred_conf = self.predict(X_train_conf)
-        # if self.metric == "accuracy":
-        #   metric_conf = accuracy_score(y_train_conf.numpy(), y_pred_conf.numpy())
-        # elif self.metric == "f1":
-        #   metric_conf = f1_score(y_train_conf.numpy(), y_pred_conf.numpy(), average="macro")
-
-        # metrics.append(metric_conf)
-
-        # outputs_margin = self.predict_proba(self.X_train)
-        # top2 = torch.topk(outputs_margin, 2, dim=1)
-        # margin = -(top2.values[:, 0] - top2.values[:, 1])
-        # indices = torch.argsort(margin)[:self.update_size]
-        # X_train_margin = self.X_train[indices].clone()
-        # y_train_margin = self.y_train[indices].clone()
-        # y_pred_margin = self.predict(X_train_margin)
-        # if self.metric == "accuracy":
-        #   metric_margin = accuracy_score(y_train_margin.numpy(), y_pred_margin.numpy())
-        # elif self.metric == "f1":
-        #   metric_margin = f1_score(y_train_margin.numpy(), y_pred_margin.numpy(), average="macro")
-
-        # metrics.append(metric_margin)
-
-
-        # outputs_entropy = self.predict_proba(self.X_train)
-        # entropy = -torch.sum(probas * torch.log(probas + 1e-8), dim=1)
-        # indices = torch.argsort(entropy)[:self.update_size]
-        # X_train_entropy = self.X_train[indices].clone()
-        # y_train_entropy = self.y_train[indices].clone()
-        # y_pred_entropy = self.predict(X_train_margin)
-        # if self.metric == "accuracy":
-        #   metric_entropy = accuracy_score(y_train_entropy.numpy(), y_pred_entropy.numpy())
-        # elif self.metric == "f1":
-        #   metric_entropy = f1_score(y_train_entropy.numpy(), y_pred_entropy.numpy(), average="macro")
-
-        # metrics.append(metric_entropy)
-        pass
-
-
-
 
     X_update = self.X_pool[indices].clone()
     y_update = self.y_pool[indices].clone()
@@ -297,8 +240,9 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
         al_type_name = "cumul"
       elif al_obj.al_type == "half-cumulative":
         al_type_name = "half-cumul"
-
-      hidden_dim = al_obj.model.hidden_dim
+      
+      if "hidden_dim" in al_obj.__dict__:
+        hidden_dim = al_obj.model.hidden_dim
       
       if isinstance(al_obj.model, ANN):
         skip_label = f"_s{al_obj.skip_size}" if al_obj.skip else ""
