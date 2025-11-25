@@ -18,10 +18,11 @@ class ActiveLearning:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
   def __init__(self, model, X_train, y_train, X_test, y_test,
                strategy="random", al_type="cumulative",
                update_size=128, init_size=128, skip_size=8, skip=False,
-               epochs=1, batch_size=128,
+               epochs=1, batch_size=128, logs=False, normalization=True,
                metric="f1", criterion=nn.CrossEntropyLoss()):
 
     self.model = model
@@ -33,10 +34,13 @@ class ActiveLearning:
     self.epochs = epochs
     self.metric = metric
     self.skip = skip
+    self.logs = logs
+    self.normalization = normalization
     self.skip_size = skip_size
     self.most_inf_images = []
 
-    X_train_scaled, X_test_scaled = ActiveLearning.normalize_data(X_train, X_test)
+    if self.normalization:
+       X_train_scaled, X_test_scaled = ActiveLearning.normalize_data(X_train, X_test)
 
     self.X_init = X_train_scaled[:init_size].clone()
     self.y_init = y_train[:init_size].clone()
@@ -46,6 +50,7 @@ class ActiveLearning:
     self.y_pool = y_train[init_size:].clone()
     self.X_test = X_test_scaled.clone()
     self.y_test = y_test.clone()
+
     self.test_metrics = []
     self.labeled_fractions = []
     self.full_size = len(X_train)
@@ -170,9 +175,9 @@ class ActiveLearning:
 
 
 
-  def fit(self, lr=0.01):
+  def fit(self, lr=0.01, stop_ratio=1):
     self.set_seed()
-    print("AL TRAINING STARTED")
+    print(f"AL TRAINING STARTED ({self.al_type} {self.strategy})")
     optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     pool_size = len(self.X_pool)
@@ -213,6 +218,10 @@ class ActiveLearning:
         self.test_metrics.append(test_score)
         self.labeled_fractions.append((self.labeled_size / self.full_size) * 100)
 
+        if (self.labeled_fractions[-1] > stop_ratio * 100):
+           print(f"AL TRAINING FINISHED ({self.al_type} {self.strategy})")
+           return
+
         X_update, y_update = self.acquisition_function(pool_outputs, self.strategy)
 
         if self.al_type == "incremental":
@@ -236,8 +245,9 @@ class ActiveLearning:
         self.labeled_size += len(X_update)
 
         pool_size = len(self.X_pool)
-        print(f"Training AL: {self.al_type} {self.strategy} | Доля: {self.labeled_fractions[-1]:.3f}")
-    print("AL TRAINING FINISHED")
+        if self.logs:
+            print(f"Training AL: {self.al_type} {self.strategy} | Доля: {self.labeled_fractions[-1]:.3f}")
+    print(f"AL TRAINING FINISHED ({self.al_type} {self.strategy})")
     print()
 
 
