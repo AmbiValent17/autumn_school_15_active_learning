@@ -220,6 +220,7 @@ class ActiveLearning:
 
         if (self.labeled_fractions[-1] > stop_ratio * 100):
            print(f"AL TRAINING FINISHED ({self.al_type} {self.strategy})")
+           print()
            return
 
         X_update, y_update = self.acquisition_function(pool_outputs, self.strategy)
@@ -296,8 +297,11 @@ def plot_active_learning_results_many(*al_objects, dataset_name="", title=None):
         al_type_name = "half-cumul"
 
       hidden_dim = al_obj.model.hidden_dim
-
-      legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{f"_s{al_obj.skip_size}" if al_obj.skip else ""})"
+      
+      if isinstance(al_obj.model, ANN):
+        legend_label = f"{al_type_name} {al_obj.strategy} (h{hidden_dim}_e{al_obj.epochs}{f"_s{al_obj.skip_size}" if al_obj.skip else ""})"
+      else:
+        legend_label = f"{al_type_name} {al_obj.strategy} ({al_obj.model.__class__.__name__})"
 
       plt.plot(al_obj.labeled_fractions, al_obj.test_metrics,
                marker='o', linewidth=0.5, markersize=1, label=legend_label)
