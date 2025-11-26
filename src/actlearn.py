@@ -73,7 +73,7 @@ class ActiveLearning:
 
 
 
-  def acquisition_function(self, outputs, strategy):
+  def _acquisition_function(self, outputs, strategy):
     self.set_seed()
     match strategy:
       case "random":
@@ -180,7 +180,7 @@ class ActiveLearning:
            print()
            return
 
-        X_update, y_update = self.acquisition_function(pool_outputs, self.strategy)
+        X_update, y_update = self._acquisition_function(pool_outputs, self.strategy)
 
         if self.al_type == "incremental":
           self.X_train = X_update.clone()
@@ -446,7 +446,7 @@ def plot_active_learning_results_many(*al_objects, legend=None, dataset_name="",
 
     # 5. Сохранение
     filename = f"{name if name else 'al_results'}.pdf"
-    # plt.savefig(filename, format='pdf', facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=300)
+    plt.savefig(filename, format='pdf', facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=300)
     print(f"Graph saved as {filename}")
 
     plt.show()
