@@ -299,44 +299,158 @@ import torch
 from PIL import Image
 from IPython.display import display, HTML
 
-# --- Безопасная кодировка данных ---
-class SafeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer): return int(obj)
-        if isinstance(obj, np.floating): return float(obj)
-        if isinstance(obj, np.ndarray): return obj.tolist()
-        if torch.is_tensor(obj):
-            if obj.numel() == 1: return obj.item()
-            return obj.detach().cpu().numpy().tolist()
-        return super(SafeEncoder, self).default(obj)
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.ticker import MaxNLocator
 
-def tensor_to_base64_safe(tensor, size=(56, 56)):
-    """Преобразует тензор в Base64 с адаптивным ресайзом."""
-    try:
-        if not torch.is_tensor(tensor):
-            tensor = torch.tensor(tensor)
+# --- ЦВЕТОВАЯ ПАЛИТРА ---
+TG_COLORS = {
+    "Blue": "#229ED9",
+    "Dark": "#17212B",
+    "Gray": "#707579",
+    "LightGray": "#F1F1F1",
+    "SoftBack": "#F2F9FD",
+    "Red": "#FF595A",
+    "Green": "#50B368",
+    "Purple": "#9F75CF"
+}
 
-        img_np = tensor.detach().cpu().numpy()
+def plot_active_learning_results_many(*al_objects, legend=None, dataset_name="", title=None, name="active_learning_plot"):
+    """
+    Строит график Active Learning для LaTeX постера.
+    Оптимизировано для большого количества точек (~15k).
+    Точки имеют цвет более темного оттенка, чем сама линия.
+    """
 
-        if img_np.ndim == 3 and img_np.shape[0] == 1:
-            img_np = img_np.squeeze(0)
-        elif img_np.ndim == 3 and img_np.shape[0] > 3:
-             img_np = img_np.mean(axis=0)
+    # Вспомогательная функция для затемнения цвета
+    def darken_color(color, factor=0.6):
+        """
+        Преобразует цвет в RGB, затемняет его на factor и возвращает.
+        factor < 1 делает цвет темнее.
+        """
+        try:
+            c = mcolors.to_rgb(color)
+            # Умножаем каждый канал на фактор, ограничивая 0 и 1
+            return tuple(max(0, min(1, x * factor)) for x in c)
+        except:
+            return color
 
-        img_min, img_max = img_np.min(), img_np.max()
-        if img_max > img_min:
-            img_np = (img_np - img_min) / (img_max - img_min)
+    # 1. Глобальные настройки
+    plt.rcParams.update({
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font.size": 14,
+        "text.color": TG_COLORS["Dark"],
+        "axes.labelcolor": TG_COLORS["Dark"],
+        "xtick.color": TG_COLORS["Gray"],
+        "ytick.color": TG_COLORS["Gray"],
+        "axes.edgecolor": TG_COLORS["Gray"],
+        "axes.grid": True,
+        "grid.color": TG_COLORS["Blue"],
+        "grid.alpha": 0.15,
+        "grid.linestyle": "--",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42
+    })
 
-        img_np = (img_np * 255).astype(np.uint8)
+    # Создаем фигуру
+    fig, ax = plt.subplots(figsize=(10, 6))
 
-        image = Image.fromarray(img_np)
-        image = image.resize(size, Image.NEAREST)
+    # --- ЗАЛИВКА ФОНА ---
+    bg_color = TG_COLORS["SoftBack"]
+    fig.patch.set_facecolor(bg_color)
+    ax.set_facecolor(bg_color)
 
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return base64.b64encode(buffer.getvalue()).decode('utf-8')
-    except Exception:
-        return ""
+    # Цвета линий
+    line_colors = [TG_COLORS["Blue"], TG_COLORS["Red"], TG_COLORS["Green"], TG_COLORS["Purple"], TG_COLORS["Dark"]]
+
+    # 2. Отрисовка линий
+    for idx, al_obj in enumerate(al_objects):
+        # Определение имени для легенды
+        if getattr(al_obj, 'al_type', '') == "incremental":
+            al_type_name = "Inc"
+        elif getattr(al_obj, 'al_type', '') == "cumulative":
+            al_type_name = "Cumul"
+        else:
+            al_type_name = getattr(al_obj, 'al_type', 'AL')
+
+        strategy = getattr(al_obj, 'strategy', 'Strategy')
+        legend_label = f"{strategy} ({al_type_name})" if legend is None else legend[idx]
+
+        x_data = al_obj.labeled_fractions
+        y_data = al_obj.test_metrics
+
+        # Выбираем цвет линии
+        color = line_colors[idx % len(line_colors)]
+
+        # --- ЛОГИКА ВЫБОРА ЦВЕТА ТОЧЕК ---
+        if color == TG_COLORS["Blue"]:
+            # Для синего оставляем как было (темно-синий/черный из палитры Dark)
+            marker_face_color = TG_COLORS["Dark"]
+        else:
+            # Для остальных (Красный, Зеленый и т.д.) делаем их темно-бордовыми, темно-зелеными и т.д.
+            # factor=0.5 сделает цвет в 2 раза темнее
+            marker_face_color = darken_color(color, factor=0.5)
+
+        ax.plot(
+            x_data, y_data,
+            label=legend_label,
+            color=color,
+            linewidth=1.5,
+            marker='o',
+            markersize=2.0,
+            markeredgewidth=0,
+            alpha=1.0,
+            markerfacecolor=marker_face_color # Применяем вычисленный цвет
+        )
+
+    # 3. Настройки осей (Минимализм)
+
+    # Определяем название метрики
+    y_metric = 'Accuracy' if getattr(al_objects[0], 'metric', 'accuracy') == "accuracy" else 'F1 Score'
+
+    # ВСТРАИВАЕМ ПОДПИСИ В УГЛЫ
+    ax.text(0.02, 0.98, y_metric, transform=ax.transAxes,
+            ha='left', va='top', fontsize=18, fontweight='bold', color=TG_COLORS["Dark"])
+
+    ax.text(0.98, 0.02, 'Labeled Data Fraction (%)', transform=ax.transAxes,
+            ha='right', va='bottom', fontsize=18, fontweight='bold', color=TG_COLORS["Dark"])
+
+    # Полная рамка
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_linewidth(1.5)
+        spine.set_color(TG_COLORS["Gray"])
+
+    # 4. Крупная легенда
+    legend = ax.legend(
+        loc='lower right',
+        bbox_to_anchor=(0.98, 0.08),
+        frameon=True,
+        fontsize=20,
+        markerscale=6.0,
+        framealpha=1.0,
+        facecolor=bg_color,
+        edgecolor=TG_COLORS["Gray"]
+    )
+    legend.get_frame().set_linewidth(1.5)
+
+    # Настройка тиков оси X
+    if len(al_objects[0].labeled_fractions) < 20:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    else:
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+
+    plt.tight_layout()
+
+    # 5. Сохранение
+    filename = f"{name if name else 'al_results'}.pdf"
+    # plt.savefig(filename, format='pdf', facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=300)
+    print(f"Graph saved as {filename}")
+
+    plt.show()
+
 
 def plot_active_learning_results(al, dataset_name="Dataset", title=None):
     unique_id = uuid.uuid4().hex
