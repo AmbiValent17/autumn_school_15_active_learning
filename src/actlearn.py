@@ -18,6 +18,12 @@ class ActiveLearning:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+  @staticmethod
+  def _log_data(y):
+    values, counts = torch.unique(y, return_counts=True)
+    for val, count in zip(values, counts):
+        print(f"{val} | {count}")
+
 
   def __init__(self, model, X_train, y_train, X_test, y_test,
                strategy="random", al_type="cumulative",
@@ -172,6 +178,9 @@ class ActiveLearning:
           case "f1":
             test_score = f1_score(self.y_test.cpu().numpy(), test_preds.numpy(), average="macro")
 
+        if test_score < 0.3:
+           self._log_data(self.y_train)
+           
         self.test_metrics.append(test_score)
         self.labeled_fractions.append((self.labeled_size / self.full_size) * 100)
 
