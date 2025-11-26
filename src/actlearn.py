@@ -128,7 +128,7 @@ class ActiveLearning:
     pool_size = len(self.X_pool)
     train_size = len(self.X_train)
 
-    while pool_size > 0 and self.update_size > 0:
+    while pool_size > 0:
       n_batches = (train_size + self.batch_size - 1) // self.batch_size
       for epoch in range(self.epochs):
         self.model.train()
